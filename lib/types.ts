@@ -34,9 +34,11 @@ export interface ShopifyOrder {
   shipping_address: ShopifyShippingAddress | null;
   line_items: ShopifyLineItem[];
   fulfillments: ShopifyFulfillment[];
+  payment_gateway_names: string[];
 }
 
 export type DeliveryStatus = 'delivered' | 'rto' | 'dto' | 'in_transit' | 'cancelled' | 'pending';
+export type PaymentType = 'cod' | 'prepaid';
 
 export interface ProcessedOrder {
   orderId: string;
@@ -54,8 +56,10 @@ export interface ProcessedOrder {
   tags: string[];
   isSnapmint: boolean;
   deliveryStatus: DeliveryStatus;
+  paymentType: PaymentType;
   city: string;
   state: string;
+  createdAt: string;
 }
 
 export type FilterType = 'all' | 'stuck' | 'cancelled';
