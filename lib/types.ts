@@ -15,6 +15,13 @@ export interface ShopifyLineItem {
   quantity: number;
 }
 
+export interface ShopifyShippingAddress {
+  city: string | null;
+  province: string | null;
+  country: string | null;
+  zip: string | null;
+}
+
 export interface ShopifyOrder {
   id: number;
   name: string;
@@ -24,6 +31,7 @@ export interface ShopifyOrder {
   financial_status: string;
   cancelled_at: string | null;
   tags: string;
+  shipping_address: ShopifyShippingAddress | null;
   line_items: ShopifyLineItem[];
   fulfillments: ShopifyFulfillment[];
 }
@@ -46,6 +54,8 @@ export interface ProcessedOrder {
   tags: string[];
   isSnapmint: boolean;
   deliveryStatus: DeliveryStatus;
+  city: string;
+  state: string;
 }
 
 export type FilterType = 'all' | 'stuck' | 'cancelled';
@@ -54,6 +64,18 @@ export type StatusTab = 'all' | 'delivered' | 'rto' | 'dto' | 'in_transit' | 'ca
 
 export interface SkuStats {
   sku: string;
+  total: number;
+  delivered: number;
+  rto: number;
+  dto: number;
+  in_transit: number;
+  cancelled: number;
+  pending: number;
+}
+
+export interface CityStats {
+  city: string;
+  state: string;
   total: number;
   delivered: number;
   rto: number;

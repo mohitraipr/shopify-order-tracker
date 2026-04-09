@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchAllOrders, processOrders, getStatusCounts, getTopSkus } from '@/lib/shopify';
+import { fetchAllOrders, processOrders, getStatusCounts, getTopSkus, getTopCities } from '@/lib/shopify';
 
 export async function GET(request: Request) {
   try {
@@ -23,6 +23,10 @@ export async function GET(request: Request) {
       topSkus: getTopSkus(processedOrders, 10),
       snapmintTopSkus: getTopSkus(snapmintOrders, 10),
       otherTopSkus: getTopSkus(otherOrders, 10),
+      // Top Cities
+      topCities: getTopCities(processedOrders, 15),
+      snapmintTopCities: getTopCities(snapmintOrders, 15),
+      otherTopCities: getTopCities(otherOrders, 15),
       // Snapmint specific
       snapmintCount: snapmintOrders.length,
       snapmintStatusCounts: getStatusCounts(snapmintOrders),

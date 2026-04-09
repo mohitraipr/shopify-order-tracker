@@ -1,4 +1,4 @@
-import { ShopifyOrder, ProcessedOrder, DeliveryStatus, StatusTab, SkuStats } from './types';
+import { ShopifyOrder, ProcessedOrder, DeliveryStatus, StatusTab, SkuStats, CityStats } from './types';
 
 const SHOPIFY_STORE_URL = process.env.SHOPIFY_STORE_URL;
 const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;
@@ -117,6 +117,10 @@ export function processOrders(orders: ShopifyOrder[], stuckDaysThreshold: number
     const pastThreshold = daysSinceFulfillment !== null && daysSinceFulfillment >= stuckDaysThreshold;
     const isStuck = isFulfilled && deliveryStatus === 'pending' && pastThreshold;
 
+    // Extract city and state
+    const city = order.shipping_address?.city?.trim() || 'Unknown';
+    const state = order.shipping_address?.province?.trim() || 'Unknown';
+
     return {
       orderId: String(order.id),
       orderNumber: order.name,
@@ -133,6 +137,8 @@ export function processOrders(orders: ShopifyOrder[], stuckDaysThreshold: number
       tags,
       isSnapmint,
       deliveryStatus,
+      city,
+      state,
     };
   });
 }
@@ -225,6 +231,37 @@ export function getTopSkus(orders: ProcessedOrder[], limit: number = 10): SkuSta
 
   // Sort by total and get top N
   return Array.from(skuMap.values())
+    .sort((a, b) => b.total - a.total)
+    .slice(0, limit);
+}
+
+export function getTopCities(orders: ProcessedOrder[], limit: number = 15): CityStats[] {
+  const cityMap = new Map<string, CityStats>();
+
+  for (const order of orders) {
+    const cityKey = `${order.city}|${order.state}`;
+
+    if (!cityMap.has(cityKey)) {
+      cityMap.set(cityKey, {
+        city: order.city,
+        state: order.state,
+        total: 0,
+        delivered: 0,
+        rto: 0,
+        dto: 0,
+        in_transit: 0,
+        cancelled: 0,
+        pending: 0,
+      });
+    }
+
+    const stats = cityMap.get(cityKey)!;
+    stats.total++;
+    stats[order.deliveryStatus]++;
+  }
+
+  // Sort by total and get top N
+  return Array.from(cityMap.values())
     .sort((a, b) => b.total - a.total)
     .slice(0, limit);
 }

@@ -6,7 +6,8 @@ import { OrderTable } from '@/components/OrderTable';
 import { StatsCards } from '@/components/StatsCards';
 import { FilterControls } from '@/components/FilterControls';
 import { TopSkus } from '@/components/TopSkus';
-import { ProcessedOrder, TabType, StatusTab, SkuStats } from '@/lib/types';
+import { TopCities } from '@/components/TopCities';
+import { ProcessedOrder, TabType, StatusTab, SkuStats, CityStats } from '@/lib/types';
 import { downloadExcel } from '@/lib/excel';
 import { filterByTab, searchOrders, filterByStatus, getStatusCounts } from '@/lib/shopify';
 
@@ -29,6 +30,9 @@ interface ApiResponse {
   topSkus: SkuStats[];
   snapmintTopSkus: SkuStats[];
   otherTopSkus: SkuStats[];
+  topCities: CityStats[];
+  snapmintTopCities: CityStats[];
+  otherTopCities: CityStats[];
   snapmintCount: number;
   snapmintStatusCounts: StatusCounts;
   otherCount: number;
@@ -60,6 +64,11 @@ export default function Dashboard() {
     snapmint: SkuStats[];
     other: SkuStats[];
   }>({ all: [], snapmint: [], other: [] });
+  const [topCities, setTopCities] = useState<{
+    all: CityStats[];
+    snapmint: CityStats[];
+    other: CityStats[];
+  }>({ all: [], snapmint: [], other: [] });
   const [stats, setStats] = useState({
     total: 0,
     stuckCount: 0,
@@ -82,6 +91,11 @@ export default function Dashboard() {
           all: data.topSkus,
           snapmint: data.snapmintTopSkus,
           other: data.otherTopSkus,
+        });
+        setTopCities({
+          all: data.topCities,
+          snapmint: data.snapmintTopCities,
+          other: data.otherTopCities,
         });
         setStats({
           total: data.total,
@@ -213,6 +227,12 @@ export default function Dashboard() {
               {/* Top SKUs - at the top */}
               <TopSkus
                 skus={tab === 'snapmint' ? topSkus.snapmint : topSkus.other}
+                isSnapmintTab={tab === 'snapmint'}
+              />
+
+              {/* Top Cities */}
+              <TopCities
+                cities={tab === 'snapmint' ? topCities.snapmint : topCities.other}
                 isSnapmintTab={tab === 'snapmint'}
               />
 
