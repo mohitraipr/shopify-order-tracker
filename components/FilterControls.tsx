@@ -2,20 +2,10 @@
 
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { FilterType } from '@/lib/types';
 
 interface FilterControlsProps {
   stuckDays: number;
   onStuckDaysChange: (days: number) => void;
-  filterType: FilterType;
-  onFilterChange: (filter: FilterType) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onSearch: () => void;
@@ -27,8 +17,6 @@ interface FilterControlsProps {
 export function FilterControls({
   stuckDays,
   onStuckDaysChange,
-  filterType,
-  onFilterChange,
   searchQuery,
   onSearchChange,
   onSearch,
@@ -69,11 +57,11 @@ export function FilterControls({
         </Button>
       </div>
 
-      {/* Filters Row */}
+      {/* Actions Row */}
       <div className="flex flex-wrap items-center gap-4 border-t border-slate-100 pt-4">
         <div className="flex items-center gap-2">
           <label className="text-xs font-medium uppercase tracking-wider text-slate-500">
-            Stuck after
+            Pending threshold
           </label>
           <div className="flex items-center gap-1.5">
             <Input
@@ -86,24 +74,6 @@ export function FilterControls({
             />
             <span className="text-xs text-slate-500">days</span>
           </div>
-        </div>
-
-        <div className="h-6 w-px bg-slate-200" />
-
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-medium uppercase tracking-wider text-slate-500">
-            Status
-          </label>
-          <Select value={filterType} onValueChange={(v) => onFilterChange(v as FilterType)}>
-            <SelectTrigger className="h-9 w-[160px] border-slate-200 bg-slate-50/50 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Orders</SelectItem>
-              <SelectItem value="stuck">Stuck Only</SelectItem>
-              <SelectItem value="cancelled">Cancelled Only</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
 
         <div className="ml-auto flex items-center gap-2">

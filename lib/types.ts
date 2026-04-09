@@ -28,6 +28,8 @@ export interface ShopifyOrder {
   fulfillments: ShopifyFulfillment[];
 }
 
+export type DeliveryStatus = 'delivered' | 'rto' | 'dto' | 'in_transit' | 'cancelled' | 'pending';
+
 export interface ProcessedOrder {
   orderId: string;
   orderNumber: string;
@@ -43,7 +45,9 @@ export interface ProcessedOrder {
   isCancelled: boolean;
   tags: string[];
   isSnapmint: boolean;
+  deliveryStatus: DeliveryStatus;
 }
 
 export type FilterType = 'all' | 'stuck' | 'cancelled';
 export type TabType = 'snapmint' | 'other';
+export type StatusTab = 'all' | 'delivered' | 'rto' | 'dto' | 'in_transit' | 'cancelled' | 'pending';

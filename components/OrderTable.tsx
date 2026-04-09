@@ -9,48 +9,70 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ProcessedOrder } from '@/lib/types';
+import { ProcessedOrder, DeliveryStatus } from '@/lib/types';
 
 interface OrderTableProps {
   orders: ProcessedOrder[];
 }
 
+const STATUS_CONFIG: Record<DeliveryStatus, { label: string; className: string; icon: React.ReactNode }> = {
+  delivered: {
+    label: 'Delivered',
+    className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    icon: (
+      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  in_transit: {
+    label: 'In Transit',
+    className: 'border-blue-200 bg-blue-50 text-blue-700',
+    icon: (
+      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25m-6.75 0V7.5m0 0H6A2.25 2.25 0 003.75 9.75v3.375M7.5 7.5h3" />
+      </svg>
+    ),
+  },
+  rto: {
+    label: 'RTO',
+    className: 'border-rose-200 bg-rose-50 text-rose-700',
+    icon: (
+      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+      </svg>
+    ),
+  },
+  dto: {
+    label: 'DTO',
+    className: 'border-orange-200 bg-orange-50 text-orange-700',
+    icon: (
+      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+      </svg>
+    ),
+  },
+  cancelled: {
+    label: 'Cancelled',
+    className: 'border-amber-200 bg-amber-50 text-amber-700',
+    icon: (
+      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    ),
+  },
+  pending: {
+    label: 'Pending',
+    className: 'border-slate-200 bg-slate-50 text-slate-600',
+    icon: (
+      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+};
+
 export function OrderTable({ orders }: OrderTableProps) {
-  const getStatusBadge = (status: string) => {
-    const styles: Record<string, string> = {
-      fulfilled: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      unfulfilled: 'bg-slate-50 text-slate-600 border-slate-200',
-      partial: 'bg-amber-50 text-amber-700 border-amber-200',
-    };
-    return (
-      <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${styles[status] || styles.unfulfilled}`}>
-        {status}
-      </span>
-    );
-  };
-
-  const getShipmentBadge = (status: string, isStuck: boolean) => {
-    if (isStuck) {
-      return (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-medium text-rose-700">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-500" />
-          {status}
-        </span>
-      );
-    }
-    const styles: Record<string, string> = {
-      in_transit: 'bg-blue-50 text-blue-700 border-blue-200',
-      delivered: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      out_for_delivery: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-      unknown: 'bg-slate-50 text-slate-500 border-slate-200',
-    };
-    return (
-      <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${styles[status] || styles.unknown}`}>
-        {status.replace(/_/g, ' ')}
-      </span>
-    );
-  };
-
   if (orders.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 py-16">
@@ -75,67 +97,59 @@ export function OrderTable({ orders }: OrderTableProps) {
               <TableHead className="h-12 text-xs font-semibold uppercase tracking-wider text-slate-500">Tracking</TableHead>
               <TableHead className="h-12 text-xs font-semibold uppercase tracking-wider text-slate-500">Carrier</TableHead>
               <TableHead className="h-12 text-xs font-semibold uppercase tracking-wider text-slate-500">SKUs</TableHead>
-              <TableHead className="h-12 text-xs font-semibold uppercase tracking-wider text-slate-500">Fulfillment</TableHead>
-              <TableHead className="h-12 text-xs font-semibold uppercase tracking-wider text-slate-500">Shipment</TableHead>
-              <TableHead className="h-12 text-xs font-semibold uppercase tracking-wider text-slate-500">Days</TableHead>
               <TableHead className="h-12 text-xs font-semibold uppercase tracking-wider text-slate-500">Status</TableHead>
+              <TableHead className="h-12 text-xs font-semibold uppercase tracking-wider text-slate-500">Days</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {orders.map((order, index) => (
-              <TableRow
-                key={order.orderId}
-                className={`
-                  border-b border-slate-50 transition-colors
-                  ${order.isStuck ? 'bg-rose-50/30 hover:bg-rose-50/50' : order.isCancelled ? 'bg-amber-50/30 hover:bg-amber-50/50' : 'hover:bg-slate-50/50'}
-                  ${index % 2 === 0 ? '' : 'bg-slate-25'}
-                `}
-              >
-                <TableCell className="py-3.5">
-                  <span className="font-semibold text-slate-900">{order.orderNumber}</span>
-                  {order.isSnapmint && (
-                    <Badge className="ml-2 border-0 bg-emerald-100 text-[10px] font-medium text-emerald-700">
-                      Snapmint
-                    </Badge>
-                  )}
-                </TableCell>
-                <TableCell className="py-3.5">
-                  <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-700">
-                    {order.trackingId}
-                  </code>
-                </TableCell>
-                <TableCell className="py-3.5 text-sm text-slate-600">{order.trackingCompany}</TableCell>
-                <TableCell className="max-w-[180px] truncate py-3.5 text-sm text-slate-600" title={order.skus}>
-                  {order.skus}
-                </TableCell>
-                <TableCell className="py-3.5">{getStatusBadge(order.fulfillmentStatus)}</TableCell>
-                <TableCell className="py-3.5">{getShipmentBadge(order.shipmentStatus, order.isStuck)}</TableCell>
-                <TableCell className="py-3.5">
-                  <span className={`font-mono text-sm ${order.daysSinceFulfillment !== null && order.daysSinceFulfillment >= 3 ? 'font-semibold text-rose-600' : 'text-slate-600'}`}>
-                    {order.daysSinceFulfillment ?? '—'}
-                  </span>
-                </TableCell>
-                <TableCell className="py-3.5">
-                  {order.isCancelled ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                      Cancelled
+            {orders.map((order) => {
+              const statusConfig = STATUS_CONFIG[order.deliveryStatus];
+              const rowBg = order.deliveryStatus === 'rto'
+                ? 'bg-rose-50/30 hover:bg-rose-50/50'
+                : order.deliveryStatus === 'dto'
+                ? 'bg-orange-50/30 hover:bg-orange-50/50'
+                : order.deliveryStatus === 'cancelled'
+                ? 'bg-amber-50/30 hover:bg-amber-50/50'
+                : 'hover:bg-slate-50/50';
+
+              return (
+                <TableRow
+                  key={order.orderId}
+                  className={`border-b border-slate-50 transition-colors ${rowBg}`}
+                >
+                  <TableCell className="py-3.5">
+                    <div className="flex flex-col gap-1">
+                      <span className="font-semibold text-slate-900">{order.orderNumber}</span>
+                      {order.isSnapmint && (
+                        <Badge className="w-fit border-0 bg-emerald-100 text-[10px] font-medium text-emerald-700">
+                          Snapmint
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="py-3.5">
+                    <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-700">
+                      {order.trackingId}
+                    </code>
+                  </TableCell>
+                  <TableCell className="py-3.5 text-sm text-slate-600">{order.trackingCompany}</TableCell>
+                  <TableCell className="max-w-[180px] truncate py-3.5 text-sm text-slate-600" title={order.skus}>
+                    {order.skus}
+                  </TableCell>
+                  <TableCell className="py-3.5">
+                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${statusConfig.className}`}>
+                      {statusConfig.icon}
+                      {statusConfig.label}
                     </span>
-                  ) : order.isStuck ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-medium text-rose-700">
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                      </svg>
-                      Stuck
+                  </TableCell>
+                  <TableCell className="py-3.5">
+                    <span className={`font-mono text-sm ${order.daysSinceFulfillment !== null && order.daysSinceFulfillment >= 3 && order.deliveryStatus === 'pending' ? 'font-semibold text-rose-600' : 'text-slate-600'}`}>
+                      {order.daysSinceFulfillment ?? '—'}
                     </span>
-                  ) : (
-                    <span className="text-xs text-slate-400">—</span>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>

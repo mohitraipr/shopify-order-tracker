@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchAllOrders, processOrders } from '@/lib/shopify';
+import { fetchAllOrders, processOrders, getStatusCounts } from '@/lib/shopify';
 
 export async function GET(request: Request) {
   try {
@@ -16,12 +16,15 @@ export async function GET(request: Request) {
       success: true,
       orders: processedOrders,
       total: processedOrders.length,
-      stuckCount: processedOrders.filter((o) => o.isStuck && !o.isCancelled).length,
-      cancelledCount: processedOrders.filter((o) => o.isCancelled && o.fulfillmentStatus === 'fulfilled').length,
+      stuckCount: processedOrders.filter((o) => o.isStuck).length,
+      // Status counts for all orders
+      statusCounts: getStatusCounts(processedOrders),
+      // Snapmint specific
       snapmintCount: snapmintOrders.length,
-      snapmintStuckCount: snapmintOrders.filter((o) => o.isStuck && !o.isCancelled).length,
+      snapmintStatusCounts: getStatusCounts(snapmintOrders),
+      // Other orders specific
       otherCount: otherOrders.length,
-      otherStuckCount: otherOrders.filter((o) => o.isStuck && !o.isCancelled).length,
+      otherStatusCounts: getStatusCounts(otherOrders),
     });
   } catch (error) {
     console.error('Error fetching orders:', error);

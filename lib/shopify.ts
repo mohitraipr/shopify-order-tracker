@@ -1,4 +1,4 @@
-import { ShopifyOrder, ProcessedOrder } from './types';
+import { ShopifyOrder, ProcessedOrder, DeliveryStatus, StatusTab } from './types';
 
 const SHOPIFY_STORE_URL = process.env.SHOPIFY_STORE_URL;
 const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;
@@ -75,18 +75,47 @@ export function processOrders(orders: ShopifyOrder[], stuckDaysThreshold: number
       .filter(Boolean)
       .join(', ');
 
-    // Determine if order is "stuck" - fulfilled but not in transit after threshold days
-    const isFulfilled = order.fulfillment_status === 'fulfilled';
-    const notInTransit = !['in_transit', 'out_for_delivery', 'delivered'].includes(shipmentStatus);
-    const pastThreshold = daysSinceFulfillment !== null && daysSinceFulfillment >= stuckDaysThreshold;
-    const isStuck = isFulfilled && notInTransit && pastThreshold;
-
-    // Cancelled orders
-    const isCancelled = order.cancelled_at !== null;
-
     // Parse tags
     const tags = order.tags ? order.tags.split(',').map((t) => t.trim().toLowerCase()) : [];
     const isSnapmint = tags.some((t) => t.includes('snapmint'));
+
+    // Cancelled orders
+    const isCancelled = order.cancelled_at !== null ||
+                        tags.some((t) => t === 'cancelled' || t === 'coc-cancelled');
+
+    // Determine delivery status
+    const hasReturnTags = tags.some((t) =>
+      t === 'returned' || t === 'rto' || t.includes('rto ')
+    );
+    const hasDtoTags = tags.some((t) =>
+      t.startsWith('return-') || t === 'return-shipped' || t === 'return-refunded' ||
+      t === 'return-pickedup' || t === 'return-approved' || t === 'return-pickup-scheduled'
+    );
+    const hasDeliveredTag = tags.includes('delivered');
+
+    let deliveryStatus: DeliveryStatus;
+
+    if (isCancelled) {
+      deliveryStatus = 'cancelled';
+    } else if (hasDtoTags) {
+      // Customer-initiated returns (delivered then returned)
+      deliveryStatus = 'dto';
+    } else if (shipmentStatus === 'failure' || hasReturnTags) {
+      // Failed delivery / RTO
+      deliveryStatus = 'rto';
+    } else if (shipmentStatus === 'delivered' || hasDeliveredTag) {
+      deliveryStatus = 'delivered';
+    } else if (shipmentStatus === 'in_transit' || shipmentStatus === 'out_for_delivery') {
+      deliveryStatus = 'in_transit';
+    } else {
+      // confirmed, unknown, or unfulfilled
+      deliveryStatus = 'pending';
+    }
+
+    // Determine if order is "stuck" - pending for too long (not RTO, not delivered, not in transit)
+    const isFulfilled = order.fulfillment_status === 'fulfilled';
+    const pastThreshold = daysSinceFulfillment !== null && daysSinceFulfillment >= stuckDaysThreshold;
+    const isStuck = isFulfilled && deliveryStatus === 'pending' && pastThreshold;
 
     return {
       orderId: String(order.id),
@@ -103,6 +132,7 @@ export function processOrders(orders: ShopifyOrder[], stuckDaysThreshold: number
       isCancelled,
       tags,
       isSnapmint,
+      deliveryStatus,
     };
   });
 }
@@ -144,4 +174,24 @@ export function searchOrders(
       o.trackingId.toLowerCase().includes(q) ||
       o.skus.toLowerCase().includes(q)
   );
+}
+
+export function filterByStatus(
+  orders: ProcessedOrder[],
+  statusTab: StatusTab
+): ProcessedOrder[] {
+  if (statusTab === 'all') return orders;
+  return orders.filter((o) => o.deliveryStatus === statusTab);
+}
+
+export function getStatusCounts(orders: ProcessedOrder[]) {
+  return {
+    all: orders.length,
+    delivered: orders.filter((o) => o.deliveryStatus === 'delivered').length,
+    rto: orders.filter((o) => o.deliveryStatus === 'rto').length,
+    dto: orders.filter((o) => o.deliveryStatus === 'dto').length,
+    in_transit: orders.filter((o) => o.deliveryStatus === 'in_transit').length,
+    cancelled: orders.filter((o) => o.deliveryStatus === 'cancelled').length,
+    pending: orders.filter((o) => o.deliveryStatus === 'pending').length,
+  };
 }

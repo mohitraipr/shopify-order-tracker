@@ -5,28 +5,48 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OrderTable } from '@/components/OrderTable';
 import { StatsCards } from '@/components/StatsCards';
 import { FilterControls } from '@/components/FilterControls';
-import { ProcessedOrder, FilterType, TabType } from '@/lib/types';
+import { ProcessedOrder, TabType, StatusTab } from '@/lib/types';
 import { downloadExcel } from '@/lib/excel';
-import { filterOrders, filterByTab, searchOrders } from '@/lib/shopify';
+import { filterByTab, searchOrders, filterByStatus, getStatusCounts } from '@/lib/shopify';
+
+interface StatusCounts {
+  all: number;
+  delivered: number;
+  rto: number;
+  dto: number;
+  in_transit: number;
+  cancelled: number;
+  pending: number;
+}
 
 interface ApiResponse {
   success: boolean;
   orders: ProcessedOrder[];
   total: number;
   stuckCount: number;
-  cancelledCount: number;
+  statusCounts: StatusCounts;
   snapmintCount: number;
-  snapmintStuckCount: number;
+  snapmintStatusCounts: StatusCounts;
   otherCount: number;
-  otherStuckCount: number;
+  otherStatusCounts: StatusCounts;
   error?: string;
 }
+
+const STATUS_LABELS: Record<StatusTab, { label: string; color: string; bgColor: string }> = {
+  all: { label: 'All', color: 'text-slate-700', bgColor: 'bg-slate-100' },
+  delivered: { label: 'Delivered', color: 'text-emerald-700', bgColor: 'bg-emerald-100' },
+  in_transit: { label: 'In Transit', color: 'text-blue-700', bgColor: 'bg-blue-100' },
+  rto: { label: 'RTO', color: 'text-rose-700', bgColor: 'bg-rose-100' },
+  dto: { label: 'DTO', color: 'text-orange-700', bgColor: 'bg-orange-100' },
+  cancelled: { label: 'Cancelled', color: 'text-amber-700', bgColor: 'bg-amber-100' },
+  pending: { label: 'Pending', color: 'text-slate-500', bgColor: 'bg-slate-100' },
+};
 
 export default function Dashboard() {
   const [orders, setOrders] = useState<ProcessedOrder[]>([]);
   const [stuckDays, setStuckDays] = useState(3);
-  const [filterType, setFilterType] = useState<FilterType>('all');
   const [activeTab, setActiveTab] = useState<TabType>('other');
+  const [statusTab, setStatusTab] = useState<StatusTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -34,11 +54,11 @@ export default function Dashboard() {
   const [stats, setStats] = useState({
     total: 0,
     stuckCount: 0,
-    cancelledCount: 0,
+    statusCounts: { all: 0, delivered: 0, rto: 0, dto: 0, in_transit: 0, cancelled: 0, pending: 0 },
     snapmintCount: 0,
-    snapmintStuckCount: 0,
+    snapmintStatusCounts: { all: 0, delivered: 0, rto: 0, dto: 0, in_transit: 0, cancelled: 0, pending: 0 },
     otherCount: 0,
-    otherStuckCount: 0,
+    otherStatusCounts: { all: 0, delivered: 0, rto: 0, dto: 0, in_transit: 0, cancelled: 0, pending: 0 },
   });
 
   const fetchOrders = useCallback(async () => {
@@ -52,11 +72,11 @@ export default function Dashboard() {
         setStats({
           total: data.total,
           stuckCount: data.stuckCount,
-          cancelledCount: data.cancelledCount,
+          statusCounts: data.statusCounts,
           snapmintCount: data.snapmintCount,
-          snapmintStuckCount: data.snapmintStuckCount,
+          snapmintStatusCounts: data.snapmintStatusCounts,
           otherCount: data.otherCount,
-          otherStuckCount: data.otherStuckCount,
+          otherStatusCounts: data.otherStatusCounts,
         });
       } else {
         setError(data.error || 'Failed to fetch orders');
@@ -78,32 +98,31 @@ export default function Dashboard() {
 
   const handleExport = () => {
     const exportOrders = getDisplayedOrders();
-    downloadExcel(exportOrders, filterType);
+    downloadExcel(exportOrders, 'all');
   };
 
   const getDisplayedOrders = useMemo(() => {
     return () => {
       let result = filterByTab(orders, activeTab);
-      result = filterOrders(result, filterType);
+      result = filterByStatus(result, statusTab);
       result = searchOrders(result, appliedSearch);
       return result;
     };
-  }, [orders, activeTab, filterType, appliedSearch]);
+  }, [orders, activeTab, statusTab, appliedSearch]);
 
   const displayedOrders = getDisplayedOrders();
 
-  const currentStats = useMemo(() => {
+  // Calculate counts for displayed results after search
+  const filteredStatusCounts = useMemo(() => {
     const tabOrders = filterByTab(orders, activeTab);
-    return {
-      total: tabOrders.length,
-      stuckCount: tabOrders.filter((o) => o.isStuck && !o.isCancelled).length,
-      cancelledCount: tabOrders.filter((o) => o.isCancelled && o.fulfillmentStatus === 'fulfilled').length,
-    };
-  }, [orders, activeTab]);
+    const searchedOrders = searchOrders(tabOrders, appliedSearch);
+    return getStatusCounts(searchedOrders);
+  }, [orders, activeTab, appliedSearch]);
+
+  const currentStatusCounts = activeTab === 'snapmint' ? stats.snapmintStatusCounts : stats.otherStatusCounts;
 
   return (
     <main className="relative min-h-screen bg-gradient-to-b from-slate-50 to-slate-100/50">
-      {/* Subtle grain overlay */}
       <div className="grain-overlay" />
 
       {/* Header */}
@@ -115,7 +134,7 @@ export default function Dashboard() {
                 Order Tracker
               </h1>
               <p className="mt-1 text-sm text-slate-500">
-                Monitor fulfillments and identify problematic orders
+                Monitor fulfillments and delivery status
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -138,9 +157,13 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Snapmint / Other Tabs */}
         <Tabs
           value={activeTab}
-          onValueChange={(v) => setActiveTab(v as TabType)}
+          onValueChange={(v) => {
+            setActiveTab(v as TabType);
+            setStatusTab('all');
+          }}
           className="space-y-6"
         >
           <TabsList className="inline-flex h-12 items-center gap-1 rounded-xl bg-slate-100 p-1">
@@ -150,7 +173,7 @@ export default function Dashboard() {
             >
               <span className="flex items-center gap-2">
                 Other Orders
-                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700 data-[state=active]:bg-slate-100">
+                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700">
                   {stats.otherCount.toLocaleString()}
                 </span>
               </span>
@@ -169,80 +192,75 @@ export default function Dashboard() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="other" className="space-y-6">
-            <StatsCards
-              total={currentStats.total}
-              stuckCount={currentStats.stuckCount}
-              cancelledCount={currentStats.cancelledCount}
-              isSnapmintTab={false}
-            />
+          {/* Tab Content */}
+          {(['other', 'snapmint'] as TabType[]).map((tab) => (
+            <TabsContent key={tab} value={tab} className="space-y-6">
+              {/* Stats Cards */}
+              <StatsCards
+                total={tab === 'snapmint' ? stats.snapmintCount : stats.otherCount}
+                statusCounts={tab === 'snapmint' ? stats.snapmintStatusCounts : stats.otherStatusCounts}
+                isSnapmintTab={tab === 'snapmint'}
+              />
 
-            <FilterControls
-              stuckDays={stuckDays}
-              onStuckDaysChange={setStuckDays}
-              filterType={filterType}
-              onFilterChange={setFilterType}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              onSearch={handleSearch}
-              onRefresh={fetchOrders}
-              onExport={handleExport}
-              isLoading={isLoading}
-            />
+              {/* Filter Controls */}
+              <FilterControls
+                stuckDays={stuckDays}
+                onStuckDaysChange={setStuckDays}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                onSearch={handleSearch}
+                onRefresh={fetchOrders}
+                onExport={handleExport}
+                isLoading={isLoading}
+              />
 
-            <div>
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  {filterType === 'all' && 'All Orders'}
-                  {filterType === 'stuck' && 'Stuck Orders'}
-                  {filterType === 'cancelled' && 'Cancelled Orders'}
-                  <span className="ml-2 text-sm font-normal text-slate-500">
-                    ({displayedOrders.length.toLocaleString()} results)
-                  </span>
-                </h2>
+              {/* Status Tabs */}
+              <div className="flex flex-wrap gap-2">
+                {(['all', 'delivered', 'in_transit', 'rto', 'dto', 'cancelled', 'pending'] as StatusTab[]).map((status) => {
+                  const config = STATUS_LABELS[status];
+                  const count = appliedSearch ? filteredStatusCounts[status] : currentStatusCounts[status];
+                  const isActive = statusTab === status;
+
+                  return (
+                    <button
+                      key={status}
+                      onClick={() => setStatusTab(status)}
+                      className={`
+                        inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all
+                        ${isActive
+                          ? `border-transparent ${config.bgColor} ${config.color} shadow-sm`
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                        }
+                      `}
+                    >
+                      {config.label}
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${isActive ? 'bg-white/50' : config.bgColor} ${config.color}`}>
+                        {count.toLocaleString()}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-              <OrderTable orders={displayedOrders} />
-            </div>
-          </TabsContent>
 
-          <TabsContent value="snapmint" className="space-y-6">
-            <StatsCards
-              total={currentStats.total}
-              stuckCount={currentStats.stuckCount}
-              cancelledCount={currentStats.cancelledCount}
-              isSnapmintTab={true}
-            />
-
-            <FilterControls
-              stuckDays={stuckDays}
-              onStuckDaysChange={setStuckDays}
-              filterType={filterType}
-              onFilterChange={setFilterType}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              onSearch={handleSearch}
-              onRefresh={fetchOrders}
-              onExport={handleExport}
-              isLoading={isLoading}
-            />
-
-            <div>
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  <span className="flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded bg-emerald-500 text-xs font-bold text-white">S</span>
-                    {filterType === 'all' && 'All Snapmint Orders'}
-                    {filterType === 'stuck' && 'Stuck Snapmint Orders'}
-                    {filterType === 'cancelled' && 'Cancelled Snapmint Orders'}
-                  </span>
-                  <span className="ml-2 text-sm font-normal text-slate-500">
-                    ({displayedOrders.length.toLocaleString()} results)
-                  </span>
-                </h2>
+              {/* Results */}
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    {STATUS_LABELS[statusTab].label} Orders
+                    {appliedSearch && (
+                      <span className="ml-2 text-sm font-normal text-slate-500">
+                        matching "{appliedSearch}"
+                      </span>
+                    )}
+                    <span className="ml-2 text-sm font-normal text-slate-500">
+                      ({displayedOrders.length.toLocaleString()} results)
+                    </span>
+                  </h2>
+                </div>
+                <OrderTable orders={displayedOrders} />
               </div>
-              <OrderTable orders={displayedOrders} />
-            </div>
-          </TabsContent>
+            </TabsContent>
+          ))}
         </Tabs>
       </div>
     </main>

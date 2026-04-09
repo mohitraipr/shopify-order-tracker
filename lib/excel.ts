@@ -1,5 +1,14 @@
 import * as XLSX from 'xlsx';
-import { ProcessedOrder, FilterType } from './types';
+import { ProcessedOrder, FilterType, DeliveryStatus } from './types';
+
+const DELIVERY_STATUS_LABELS: Record<DeliveryStatus, string> = {
+  delivered: 'Delivered',
+  in_transit: 'In Transit',
+  rto: 'RTO (Return to Origin)',
+  dto: 'DTO (Customer Return)',
+  cancelled: 'Cancelled',
+  pending: 'Pending',
+};
 
 export function generateExcel(orders: ProcessedOrder[], filterType: FilterType): Blob {
   const data = orders.map((order) => ({
@@ -8,13 +17,10 @@ export function generateExcel(orders: ProcessedOrder[], filterType: FilterType):
     'Tracking ID': order.trackingId,
     'Tracking Company': order.trackingCompany,
     'SKUs': order.skus,
-    'Fulfillment Status': order.fulfillmentStatus,
+    'Delivery Status': DELIVERY_STATUS_LABELS[order.deliveryStatus],
     'Shipment Status': order.shipmentStatus,
     'Days Since Fulfillment': order.daysSinceFulfillment ?? 'N/A',
-    'Cancelled': order.isCancelled ? 'Yes' : 'No',
-    'Cancelled At': order.cancelledAt || 'N/A',
     'Fulfilled At': order.fulfilledAt || 'N/A',
-    'Stuck Order': order.isStuck ? 'Yes' : 'No',
     'Snapmint': order.isSnapmint ? 'Yes' : 'No',
     'Tags': order.tags.join(', '),
   }));
@@ -22,15 +28,11 @@ export function generateExcel(orders: ProcessedOrder[], filterType: FilterType):
   const worksheet = XLSX.utils.json_to_sheet(data);
   const workbook = XLSX.utils.book_new();
 
-  const sheetName = filterType === 'all' ? 'All Orders' :
-                    filterType === 'stuck' ? 'Stuck Orders' : 'Cancelled Orders';
-
-  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
 
   // Add metadata sheet
   const metadata = [
     { Field: 'Export Date', Value: new Date().toISOString() },
-    { Field: 'Filter Applied', Value: filterType },
     { Field: 'Total Records', Value: orders.length },
   ];
   const metaSheet = XLSX.utils.json_to_sheet(metadata);
@@ -45,7 +47,7 @@ export function downloadExcel(orders: ProcessedOrder[], filterType: FilterType):
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `shopify-orders-${filterType}-${new Date().toISOString().split('T')[0]}.xlsx`;
+  link.download = `shopify-orders-${new Date().toISOString().split('T')[0]}.xlsx`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
