@@ -5,11 +5,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OrderTable } from '@/components/OrderTable';
 import { StatsCards } from '@/components/StatsCards';
 import { FilterControls } from '@/components/FilterControls';
-import { TopSkus } from '@/components/TopSkus';
-import { TopCities } from '@/components/TopCities';
+import { AllSkusTable } from '@/components/AllSkusTable';
+import { AllCitiesTable } from '@/components/AllCitiesTable';
 import { ProcessedOrder, TabType, StatusTab, SkuStats, CityStats } from '@/lib/types';
 import { downloadExcel } from '@/lib/excel';
 import { filterByTab, searchOrders, filterByStatus, getStatusCounts } from '@/lib/shopify';
+
+type ViewMode = 'dashboard' | 'skus' | 'cities';
 
 interface StatusCounts {
   all: number;
@@ -27,12 +29,12 @@ interface ApiResponse {
   total: number;
   stuckCount: number;
   statusCounts: StatusCounts;
-  topSkus: SkuStats[];
-  snapmintTopSkus: SkuStats[];
-  otherTopSkus: SkuStats[];
-  topCities: CityStats[];
-  snapmintTopCities: CityStats[];
-  otherTopCities: CityStats[];
+  allSkus: SkuStats[];
+  snapmintAllSkus: SkuStats[];
+  otherAllSkus: SkuStats[];
+  allCities: CityStats[];
+  snapmintAllCities: CityStats[];
+  otherAllCities: CityStats[];
   snapmintCount: number;
   snapmintStatusCounts: StatusCounts;
   otherCount: number;
@@ -55,16 +57,17 @@ export default function Dashboard() {
   const [stuckDays, setStuckDays] = useState(3);
   const [activeTab, setActiveTab] = useState<TabType>('other');
   const [statusTab, setStatusTab] = useState<StatusTab>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [topSkus, setTopSkus] = useState<{
+  const [allSkus, setAllSkus] = useState<{
     all: SkuStats[];
     snapmint: SkuStats[];
     other: SkuStats[];
   }>({ all: [], snapmint: [], other: [] });
-  const [topCities, setTopCities] = useState<{
+  const [allCities, setAllCities] = useState<{
     all: CityStats[];
     snapmint: CityStats[];
     other: CityStats[];
@@ -87,15 +90,15 @@ export default function Dashboard() {
       const data: ApiResponse = await response.json();
       if (data.success) {
         setOrders(data.orders);
-        setTopSkus({
-          all: data.topSkus,
-          snapmint: data.snapmintTopSkus,
-          other: data.otherTopSkus,
+        setAllSkus({
+          all: data.allSkus,
+          snapmint: data.snapmintAllSkus,
+          other: data.otherAllSkus,
         });
-        setTopCities({
-          all: data.topCities,
-          snapmint: data.snapmintTopCities,
-          other: data.otherTopCities,
+        setAllCities({
+          all: data.allCities,
+          snapmint: data.snapmintAllCities,
+          other: data.otherAllCities,
         });
         setStats({
           total: data.total,
@@ -148,7 +151,6 @@ export default function Dashboard() {
   }, [orders, activeTab, appliedSearch]);
 
   const currentStatusCounts = activeTab === 'snapmint' ? stats.snapmintStatusCounts : stats.otherStatusCounts;
-  const currentTopSkus = activeTab === 'snapmint' ? topSkus.snapmint : topSkus.other;
 
   return (
     <main className="relative min-h-screen bg-gradient-to-b from-slate-50 to-slate-100/50">
@@ -224,82 +226,126 @@ export default function Dashboard() {
           {/* Tab Content */}
           {(['other', 'snapmint'] as TabType[]).map((tab) => (
             <TabsContent key={tab} value={tab} className="space-y-6">
-              {/* Top SKUs - at the top */}
-              <TopSkus
-                skus={tab === 'snapmint' ? topSkus.snapmint : topSkus.other}
-                isSnapmintTab={tab === 'snapmint'}
-              />
-
-              {/* Top Cities */}
-              <TopCities
-                cities={tab === 'snapmint' ? topCities.snapmint : topCities.other}
-                isSnapmintTab={tab === 'snapmint'}
-              />
-
-              {/* Stats Cards */}
-              <StatsCards
-                total={tab === 'snapmint' ? stats.snapmintCount : stats.otherCount}
-                statusCounts={tab === 'snapmint' ? stats.snapmintStatusCounts : stats.otherStatusCounts}
-                isSnapmintTab={tab === 'snapmint'}
-              />
-
-              {/* Filter Controls */}
-              <FilterControls
-                stuckDays={stuckDays}
-                onStuckDaysChange={setStuckDays}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                onSearch={handleSearch}
-                onRefresh={fetchOrders}
-                onExport={handleExport}
-                isLoading={isLoading}
-              />
-
-              {/* Status Tabs */}
-              <div className="flex flex-wrap gap-2">
-                {(['all', 'delivered', 'in_transit', 'rto', 'dto', 'cancelled', 'pending'] as StatusTab[]).map((status) => {
-                  const config = STATUS_LABELS[status];
-                  const count = appliedSearch ? filteredStatusCounts[status] : currentStatusCounts[status];
-                  const isActive = statusTab === status;
-
-                  return (
-                    <button
-                      key={status}
-                      onClick={() => setStatusTab(status)}
-                      className={`
-                        inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all
-                        ${isActive
-                          ? `border-transparent ${config.bgColor} ${config.color} shadow-sm`
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                        }
-                      `}
-                    >
-                      {config.label}
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${isActive ? 'bg-white/50' : config.bgColor} ${config.color}`}>
-                        {count.toLocaleString()}
-                      </span>
-                    </button>
-                  );
-                })}
+              {/* View Mode Selector */}
+              <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 w-fit">
+                {([
+                  { key: 'dashboard', label: 'Dashboard', icon: (
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                  )},
+                  { key: 'skus', label: 'All SKUs', icon: (
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                  )},
+                  { key: 'cities', label: 'All Cities', icon: (
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  )},
+                ] as const).map(({ key, label, icon }) => (
+                  <button
+                    key={key}
+                    onClick={() => setViewMode(key)}
+                    className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                      viewMode === key
+                        ? 'bg-white text-slate-900 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {icon}
+                    {label}
+                  </button>
+                ))}
               </div>
 
-              {/* Results */}
-              <div>
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    {STATUS_LABELS[statusTab].label} Orders
-                    {appliedSearch && (
-                      <span className="ml-2 text-sm font-normal text-slate-500">
-                        matching "{appliedSearch}"
-                      </span>
-                    )}
-                    <span className="ml-2 text-sm font-normal text-slate-500">
-                      ({displayedOrders.length.toLocaleString()} results)
-                    </span>
-                  </h2>
-                </div>
-                <OrderTable orders={displayedOrders} />
-              </div>
+              {/* Dashboard View */}
+              {viewMode === 'dashboard' && (
+                <>
+                  {/* Stats Cards */}
+                  <StatsCards
+                    total={tab === 'snapmint' ? stats.snapmintCount : stats.otherCount}
+                    statusCounts={tab === 'snapmint' ? stats.snapmintStatusCounts : stats.otherStatusCounts}
+                    isSnapmintTab={tab === 'snapmint'}
+                  />
+
+                  {/* Filter Controls */}
+                  <FilterControls
+                    stuckDays={stuckDays}
+                    onStuckDaysChange={setStuckDays}
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    onSearch={handleSearch}
+                    onRefresh={fetchOrders}
+                    onExport={handleExport}
+                    isLoading={isLoading}
+                  />
+
+                  {/* Status Tabs */}
+                  <div className="flex flex-wrap gap-2">
+                    {(['all', 'delivered', 'in_transit', 'rto', 'dto', 'cancelled', 'pending'] as StatusTab[]).map((status) => {
+                      const config = STATUS_LABELS[status];
+                      const count = appliedSearch ? filteredStatusCounts[status] : currentStatusCounts[status];
+                      const isActive = statusTab === status;
+
+                      return (
+                        <button
+                          key={status}
+                          onClick={() => setStatusTab(status)}
+                          className={`
+                            inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all
+                            ${isActive
+                              ? `border-transparent ${config.bgColor} ${config.color} shadow-sm`
+                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                            }
+                          `}
+                        >
+                          {config.label}
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${isActive ? 'bg-white/50' : config.bgColor} ${config.color}`}>
+                            {count.toLocaleString()}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Results */}
+                  <div>
+                    <div className="mb-4 flex items-center justify-between">
+                      <h2 className="text-lg font-semibold text-slate-900">
+                        {STATUS_LABELS[statusTab].label} Orders
+                        {appliedSearch && (
+                          <span className="ml-2 text-sm font-normal text-slate-500">
+                            matching "{appliedSearch}"
+                          </span>
+                        )}
+                        <span className="ml-2 text-sm font-normal text-slate-500">
+                          ({displayedOrders.length.toLocaleString()} results)
+                        </span>
+                      </h2>
+                    </div>
+                    <OrderTable orders={displayedOrders} />
+                  </div>
+                </>
+              )}
+
+              {/* All SKUs View */}
+              {viewMode === 'skus' && (
+                <AllSkusTable
+                  skus={tab === 'snapmint' ? allSkus.snapmint : allSkus.other}
+                  isSnapmintTab={tab === 'snapmint'}
+                />
+              )}
+
+              {/* All Cities View */}
+              {viewMode === 'cities' && (
+                <AllCitiesTable
+                  cities={tab === 'snapmint' ? allCities.snapmint : allCities.other}
+                  isSnapmintTab={tab === 'snapmint'}
+                />
+              )}
             </TabsContent>
           ))}
         </Tabs>

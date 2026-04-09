@@ -1,4 +1,5 @@
 import { ShopifyOrder, ProcessedOrder, DeliveryStatus, StatusTab, SkuStats, CityStats } from './types';
+import { getCityFromPincode } from './pincode';
 
 const SHOPIFY_STORE_URL = process.env.SHOPIFY_STORE_URL;
 const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;
@@ -117,8 +118,10 @@ export function processOrders(orders: ShopifyOrder[], stuckDaysThreshold: number
     const pastThreshold = daysSinceFulfillment !== null && daysSinceFulfillment >= stuckDaysThreshold;
     const isStuck = isFulfilled && deliveryStatus === 'pending' && pastThreshold;
 
-    // Extract city and state
-    const city = order.shipping_address?.city?.trim() || 'Unknown';
+    // Extract city from pincode and state
+    const pincode = order.shipping_address?.zip;
+    const shopifyCity = order.shipping_address?.city?.trim();
+    const city = getCityFromPincode(pincode, shopifyCity);
     const state = order.shipping_address?.province?.trim() || 'Unknown';
 
     return {
@@ -202,7 +205,7 @@ export function getStatusCounts(orders: ProcessedOrder[]) {
   };
 }
 
-export function getTopSkus(orders: ProcessedOrder[], limit: number = 10): SkuStats[] {
+export function getTopSkus(orders: ProcessedOrder[], limit?: number): SkuStats[] {
   const skuMap = new Map<string, SkuStats>();
 
   for (const order of orders) {
@@ -229,13 +232,12 @@ export function getTopSkus(orders: ProcessedOrder[], limit: number = 10): SkuSta
     }
   }
 
-  // Sort by total and get top N
-  return Array.from(skuMap.values())
-    .sort((a, b) => b.total - a.total)
-    .slice(0, limit);
+  // Sort by total and get top N (or all if no limit)
+  const sorted = Array.from(skuMap.values()).sort((a, b) => b.total - a.total);
+  return limit ? sorted.slice(0, limit) : sorted;
 }
 
-export function getTopCities(orders: ProcessedOrder[], limit: number = 15): CityStats[] {
+export function getTopCities(orders: ProcessedOrder[], limit?: number): CityStats[] {
   const cityMap = new Map<string, CityStats>();
 
   for (const order of orders) {
@@ -260,8 +262,7 @@ export function getTopCities(orders: ProcessedOrder[], limit: number = 15): City
     stats[order.deliveryStatus]++;
   }
 
-  // Sort by total and get top N
-  return Array.from(cityMap.values())
-    .sort((a, b) => b.total - a.total)
-    .slice(0, limit);
+  // Sort by total and get top N (or all if no limit)
+  const sorted = Array.from(cityMap.values()).sort((a, b) => b.total - a.total);
+  return limit ? sorted.slice(0, limit) : sorted;
 }

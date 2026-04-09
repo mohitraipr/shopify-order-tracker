@@ -19,14 +19,14 @@ export async function GET(request: Request) {
       stuckCount: processedOrders.filter((o) => o.isStuck).length,
       // Status counts for all orders
       statusCounts: getStatusCounts(processedOrders),
-      // Top SKUs
-      topSkus: getTopSkus(processedOrders, 10),
-      snapmintTopSkus: getTopSkus(snapmintOrders, 10),
-      otherTopSkus: getTopSkus(otherOrders, 10),
-      // Top Cities
-      topCities: getTopCities(processedOrders, 15),
-      snapmintTopCities: getTopCities(snapmintOrders, 15),
-      otherTopCities: getTopCities(otherOrders, 15),
+      // All SKUs
+      allSkus: getTopSkus(processedOrders),
+      snapmintAllSkus: getTopSkus(snapmintOrders),
+      otherAllSkus: getTopSkus(otherOrders),
+      // All Cities
+      allCities: getTopCities(processedOrders),
+      snapmintAllCities: getTopCities(snapmintOrders),
+      otherAllCities: getTopCities(otherOrders),
       // Snapmint specific
       snapmintCount: snapmintOrders.length,
       snapmintStatusCounts: getStatusCounts(snapmintOrders),
