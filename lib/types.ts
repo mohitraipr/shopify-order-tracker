@@ -51,3 +51,14 @@ export interface ProcessedOrder {
 export type FilterType = 'all' | 'stuck' | 'cancelled';
 export type TabType = 'snapmint' | 'other';
 export type StatusTab = 'all' | 'delivered' | 'rto' | 'dto' | 'in_transit' | 'cancelled' | 'pending';
+
+export interface SkuStats {
+  sku: string;
+  total: number;
+  delivered: number;
+  rto: number;
+  dto: number;
+  in_transit: number;
+  cancelled: number;
+  pending: number;
+}

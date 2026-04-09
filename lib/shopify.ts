@@ -1,4 +1,4 @@
-import { ShopifyOrder, ProcessedOrder, DeliveryStatus, StatusTab } from './types';
+import { ShopifyOrder, ProcessedOrder, DeliveryStatus, StatusTab, SkuStats } from './types';
 
 const SHOPIFY_STORE_URL = process.env.SHOPIFY_STORE_URL;
 const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;
@@ -194,4 +194,37 @@ export function getStatusCounts(orders: ProcessedOrder[]) {
     cancelled: orders.filter((o) => o.deliveryStatus === 'cancelled').length,
     pending: orders.filter((o) => o.deliveryStatus === 'pending').length,
   };
+}
+
+export function getTopSkus(orders: ProcessedOrder[], limit: number = 10): SkuStats[] {
+  const skuMap = new Map<string, SkuStats>();
+
+  for (const order of orders) {
+    // Split SKUs if multiple in one order
+    const skus = order.skus.split(',').map((s) => s.trim()).filter((s) => s && s !== 'N/A');
+
+    for (const sku of skus) {
+      if (!skuMap.has(sku)) {
+        skuMap.set(sku, {
+          sku,
+          total: 0,
+          delivered: 0,
+          rto: 0,
+          dto: 0,
+          in_transit: 0,
+          cancelled: 0,
+          pending: 0,
+        });
+      }
+
+      const stats = skuMap.get(sku)!;
+      stats.total++;
+      stats[order.deliveryStatus]++;
+    }
+  }
+
+  // Sort by total and get top N
+  return Array.from(skuMap.values())
+    .sort((a, b) => b.total - a.total)
+    .slice(0, limit);
 }

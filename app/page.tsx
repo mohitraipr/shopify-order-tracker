@@ -5,7 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OrderTable } from '@/components/OrderTable';
 import { StatsCards } from '@/components/StatsCards';
 import { FilterControls } from '@/components/FilterControls';
-import { ProcessedOrder, TabType, StatusTab } from '@/lib/types';
+import { TopSkus } from '@/components/TopSkus';
+import { ProcessedOrder, TabType, StatusTab, SkuStats } from '@/lib/types';
 import { downloadExcel } from '@/lib/excel';
 import { filterByTab, searchOrders, filterByStatus, getStatusCounts } from '@/lib/shopify';
 
@@ -25,6 +26,9 @@ interface ApiResponse {
   total: number;
   stuckCount: number;
   statusCounts: StatusCounts;
+  topSkus: SkuStats[];
+  snapmintTopSkus: SkuStats[];
+  otherTopSkus: SkuStats[];
   snapmintCount: number;
   snapmintStatusCounts: StatusCounts;
   otherCount: number;
@@ -51,6 +55,11 @@ export default function Dashboard() {
   const [appliedSearch, setAppliedSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [topSkus, setTopSkus] = useState<{
+    all: SkuStats[];
+    snapmint: SkuStats[];
+    other: SkuStats[];
+  }>({ all: [], snapmint: [], other: [] });
   const [stats, setStats] = useState({
     total: 0,
     stuckCount: 0,
@@ -69,6 +78,11 @@ export default function Dashboard() {
       const data: ApiResponse = await response.json();
       if (data.success) {
         setOrders(data.orders);
+        setTopSkus({
+          all: data.topSkus,
+          snapmint: data.snapmintTopSkus,
+          other: data.otherTopSkus,
+        });
         setStats({
           total: data.total,
           stuckCount: data.stuckCount,
@@ -120,6 +134,7 @@ export default function Dashboard() {
   }, [orders, activeTab, appliedSearch]);
 
   const currentStatusCounts = activeTab === 'snapmint' ? stats.snapmintStatusCounts : stats.otherStatusCounts;
+  const currentTopSkus = activeTab === 'snapmint' ? topSkus.snapmint : topSkus.other;
 
   return (
     <main className="relative min-h-screen bg-gradient-to-b from-slate-50 to-slate-100/50">
@@ -195,6 +210,12 @@ export default function Dashboard() {
           {/* Tab Content */}
           {(['other', 'snapmint'] as TabType[]).map((tab) => (
             <TabsContent key={tab} value={tab} className="space-y-6">
+              {/* Top SKUs - at the top */}
+              <TopSkus
+                skus={tab === 'snapmint' ? topSkus.snapmint : topSkus.other}
+                isSnapmintTab={tab === 'snapmint'}
+              />
+
               {/* Stats Cards */}
               <StatsCards
                 total={tab === 'snapmint' ? stats.snapmintCount : stats.otherCount}

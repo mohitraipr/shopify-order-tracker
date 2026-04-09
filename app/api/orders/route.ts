@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchAllOrders, processOrders, getStatusCounts } from '@/lib/shopify';
+import { fetchAllOrders, processOrders, getStatusCounts, getTopSkus } from '@/lib/shopify';
 
 export async function GET(request: Request) {
   try {
@@ -19,6 +19,10 @@ export async function GET(request: Request) {
       stuckCount: processedOrders.filter((o) => o.isStuck).length,
       // Status counts for all orders
       statusCounts: getStatusCounts(processedOrders),
+      // Top SKUs
+      topSkus: getTopSkus(processedOrders, 10),
+      snapmintTopSkus: getTopSkus(snapmintOrders, 10),
+      otherTopSkus: getTopSkus(otherOrders, 10),
       // Snapmint specific
       snapmintCount: snapmintOrders.length,
       snapmintStatusCounts: getStatusCounts(snapmintOrders),
