@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     const stuckDays = parseInt(searchParams.get('stuckDays') || '3', 10);
 
     const orders = await fetchAllOrders();
-    const processedOrders = processOrders(orders, stuckDays);
+    const processedOrders = await processOrders(orders, stuckDays);
 
     const snapmintOrders = processedOrders.filter((o) => o.isSnapmint);
     const otherOrders = processedOrders.filter((o) => !o.isSnapmint);

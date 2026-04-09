@@ -1,5 +1,5 @@
 import { ShopifyOrder, ProcessedOrder, DeliveryStatus, StatusTab, SkuStats, CityStats } from './types';
-import { getCityFromPincode } from './pincode';
+import { batchLookupCities } from './pincode';
 
 const SHOPIFY_STORE_URL = process.env.SHOPIFY_STORE_URL;
 const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;
@@ -50,8 +50,15 @@ export async function fetchAllOrders(): Promise<ShopifyOrder[]> {
   return allOrders;
 }
 
-export function processOrders(orders: ShopifyOrder[], stuckDaysThreshold: number): ProcessedOrder[] {
+export async function processOrders(orders: ShopifyOrder[], stuckDaysThreshold: number): Promise<ProcessedOrder[]> {
   const now = new Date();
+
+  // Batch lookup all cities from pincodes
+  const pincodes = orders
+    .map((order) => order.shipping_address?.zip)
+    .filter((zip): zip is string => !!zip);
+
+  const cityLookup = await batchLookupCities(pincodes);
 
   return orders.map((order) => {
     const latestFulfillment = order.fulfillments[order.fulfillments.length - 1];
@@ -118,10 +125,10 @@ export function processOrders(orders: ShopifyOrder[], stuckDaysThreshold: number
     const pastThreshold = daysSinceFulfillment !== null && daysSinceFulfillment >= stuckDaysThreshold;
     const isStuck = isFulfilled && deliveryStatus === 'pending' && pastThreshold;
 
-    // Extract city from pincode and state
-    const pincode = order.shipping_address?.zip;
+    // Extract city from pincode lookup and state
+    const pincode = order.shipping_address?.zip?.replace(/\D/g, '') || '';
     const shopifyCity = order.shipping_address?.city?.trim();
-    const city = getCityFromPincode(pincode, shopifyCity);
+    const city = cityLookup.get(pincode) || shopifyCity || 'Unknown';
     const state = order.shipping_address?.province?.trim() || 'Unknown';
 
     return {
