@@ -84,6 +84,10 @@ export function processOrders(orders: ShopifyOrder[], stuckDaysThreshold: number
     // Cancelled orders
     const isCancelled = order.cancelled_at !== null;
 
+    // Parse tags
+    const tags = order.tags ? order.tags.split(',').map((t) => t.trim().toLowerCase()) : [];
+    const isSnapmint = tags.some((t) => t.includes('snapmint'));
+
     return {
       orderId: String(order.id),
       orderNumber: order.name,
@@ -97,6 +101,8 @@ export function processOrders(orders: ShopifyOrder[], stuckDaysThreshold: number
       daysSinceFulfillment,
       isStuck,
       isCancelled,
+      tags,
+      isSnapmint,
     };
   });
 }
@@ -113,4 +119,29 @@ export function filterOrders(
     default:
       return orders;
   }
+}
+
+export function filterByTab(
+  orders: ProcessedOrder[],
+  tab: 'snapmint' | 'other'
+): ProcessedOrder[] {
+  if (tab === 'snapmint') {
+    return orders.filter((o) => o.isSnapmint);
+  }
+  return orders.filter((o) => !o.isSnapmint);
+}
+
+export function searchOrders(
+  orders: ProcessedOrder[],
+  query: string
+): ProcessedOrder[] {
+  if (!query.trim()) return orders;
+  const q = query.toLowerCase();
+  return orders.filter(
+    (o) =>
+      o.orderNumber.toLowerCase().includes(q) ||
+      o.orderId.includes(q) ||
+      o.trackingId.toLowerCase().includes(q) ||
+      o.skus.toLowerCase().includes(q)
+  );
 }

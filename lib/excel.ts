@@ -15,6 +15,8 @@ export function generateExcel(orders: ProcessedOrder[], filterType: FilterType):
     'Cancelled At': order.cancelledAt || 'N/A',
     'Fulfilled At': order.fulfilledAt || 'N/A',
     'Stuck Order': order.isStuck ? 'Yes' : 'No',
+    'Snapmint': order.isSnapmint ? 'Yes' : 'No',
+    'Tags': order.tags.join(', '),
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(data);

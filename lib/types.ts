@@ -23,6 +23,7 @@ export interface ShopifyOrder {
   fulfillment_status: string | null;
   financial_status: string;
   cancelled_at: string | null;
+  tags: string;
   line_items: ShopifyLineItem[];
   fulfillments: ShopifyFulfillment[];
 }
@@ -40,6 +41,9 @@ export interface ProcessedOrder {
   daysSinceFulfillment: number | null;
   isStuck: boolean;
   isCancelled: boolean;
+  tags: string[];
+  isSnapmint: boolean;
 }
 
 export type FilterType = 'all' | 'stuck' | 'cancelled';
+export type TabType = 'snapmint' | 'other';

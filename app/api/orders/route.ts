@@ -9,12 +9,19 @@ export async function GET(request: Request) {
     const orders = await fetchAllOrders();
     const processedOrders = processOrders(orders, stuckDays);
 
+    const snapmintOrders = processedOrders.filter((o) => o.isSnapmint);
+    const otherOrders = processedOrders.filter((o) => !o.isSnapmint);
+
     return NextResponse.json({
       success: true,
       orders: processedOrders,
       total: processedOrders.length,
       stuckCount: processedOrders.filter((o) => o.isStuck && !o.isCancelled).length,
       cancelledCount: processedOrders.filter((o) => o.isCancelled && o.fulfillmentStatus === 'fulfilled').length,
+      snapmintCount: snapmintOrders.length,
+      snapmintStuckCount: snapmintOrders.filter((o) => o.isStuck && !o.isCancelled).length,
+      otherCount: otherOrders.length,
+      otherStuckCount: otherOrders.filter((o) => o.isStuck && !o.isCancelled).length,
     });
   } catch (error) {
     console.error('Error fetching orders:', error);
