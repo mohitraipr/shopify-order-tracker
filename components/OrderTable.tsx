@@ -15,6 +15,8 @@ interface OrderTableProps {
   orders: ProcessedOrder[];
 }
 
+const inr = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
+
 const STATUS_CONFIG: Record<DeliveryStatus, { label: string; className: string; icon: React.ReactNode }> = {
   delivered: {
     label: 'Delivered',
@@ -97,6 +99,8 @@ export function OrderTable({ orders }: OrderTableProps) {
               <TableHead className="h-12 text-xs font-semibold uppercase tracking-wider text-slate-500">Tracking</TableHead>
               <TableHead className="h-12 text-xs font-semibold uppercase tracking-wider text-slate-500">Carrier</TableHead>
               <TableHead className="h-12 text-xs font-semibold uppercase tracking-wider text-slate-500">SKUs</TableHead>
+              <TableHead className="h-12 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">MRP</TableHead>
+              <TableHead className="h-12 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Value</TableHead>
               <TableHead className="h-12 text-xs font-semibold uppercase tracking-wider text-slate-500">Status</TableHead>
               <TableHead className="h-12 text-xs font-semibold uppercase tracking-wider text-slate-500">Days</TableHead>
             </TableRow>
@@ -135,6 +139,12 @@ export function OrderTable({ orders }: OrderTableProps) {
                   <TableCell className="py-3.5 text-sm text-slate-600">{order.trackingCompany}</TableCell>
                   <TableCell className="max-w-[180px] truncate py-3.5 text-sm text-slate-600" title={order.skus}>
                     {order.skus}
+                  </TableCell>
+                  <TableCell className="py-3.5 text-right font-mono text-sm text-slate-400 line-through">
+                    {inr(order.mrp)}
+                  </TableCell>
+                  <TableCell className="py-3.5 text-right font-mono text-sm font-semibold text-slate-900">
+                    {inr(order.orderValue)}
                   </TableCell>
                   <TableCell className="py-3.5">
                     <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${statusConfig.className}`}>

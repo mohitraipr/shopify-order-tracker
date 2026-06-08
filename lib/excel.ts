@@ -17,6 +17,8 @@ export function generateExcel(orders: ProcessedOrder[], filterType: FilterType):
     'Tracking ID': order.trackingId,
     'Tracking Company': order.trackingCompany,
     'SKUs': order.skus,
+    'MRP': order.mrp,
+    'Order Value': order.orderValue,
     'City': order.city,
     'State': order.state,
     'Delivery Status': DELIVERY_STATUS_LABELS[order.deliveryStatus],

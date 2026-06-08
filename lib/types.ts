@@ -13,6 +13,9 @@ export interface ShopifyLineItem {
   sku: string;
   name: string;
   quantity: number;
+  variant_id: number | null;
+  product_id: number | null;
+  price: string;
 }
 
 export interface ShopifyShippingAddress {
@@ -29,6 +32,7 @@ export interface ShopifyOrder {
   updated_at: string;
   fulfillment_status: string | null;
   financial_status: string;
+  total_price: string;
   cancelled_at: string | null;
   tags: string;
   shipping_address: ShopifyShippingAddress | null;
@@ -57,6 +61,8 @@ export interface ProcessedOrder {
   isSnapmint: boolean;
   deliveryStatus: DeliveryStatus;
   paymentType: PaymentType;
+  mrp: number;
+  orderValue: number;
   city: string;
   state: string;
   createdAt: string;

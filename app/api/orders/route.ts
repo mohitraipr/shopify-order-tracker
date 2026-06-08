@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchAllOrders, processOrders, getStatusCounts, getPaymentTypeCounts, getTopSkus, getTopCities, filterByPaymentType } from '@/lib/shopify';
+import { fetchAllOrders, fetchVariantMrpMap, processOrders, getStatusCounts, getPaymentTypeCounts, getTopSkus, getTopCities, filterByPaymentType } from '@/lib/shopify';
 
 export async function GET(request: Request) {
   try {
@@ -7,7 +7,8 @@ export async function GET(request: Request) {
     const stuckDays = parseInt(searchParams.get('stuckDays') || '3', 10);
 
     const orders = await fetchAllOrders();
-    const processedOrders = processOrders(orders, stuckDays);
+    const mrpMap = await fetchVariantMrpMap(orders);
+    const processedOrders = processOrders(orders, stuckDays, mrpMap);
 
     const snapmintOrders = processedOrders.filter((o) => o.isSnapmint);
     const otherOrders = processedOrders.filter((o) => !o.isSnapmint);

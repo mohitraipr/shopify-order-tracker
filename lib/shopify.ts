@@ -53,7 +53,64 @@ export async function fetchAllOrders(): Promise<ShopifyOrder[]> {
   return allOrders;
 }
 
-export function processOrders(orders: ShopifyOrder[], stuckDaysThreshold: number): ProcessedOrder[] {
+// Build a map of variant_id -> compare-at price (the struck-through MRP) by
+// fetching the products referenced in the orders. compare_at_price is not part
+// of the order payload, so we look it up from the products API.
+// NOTE: this is the CURRENT compare-at price on the product, not the MRP frozen
+// at the time the order was placed.
+export async function fetchVariantMrpMap(orders: ShopifyOrder[]): Promise<Map<number, number>> {
+  const mrpMap = new Map<number, number>();
+
+  if (!SHOPIFY_STORE_URL || !SHOPIFY_ACCESS_TOKEN) {
+    throw new Error('Missing Shopify credentials');
+  }
+
+  // Unique product ids across all line items
+  const productIds = Array.from(
+    new Set(
+      orders
+        .flatMap((order) => order.line_items)
+        .map((item) => item.product_id)
+        .filter((id): id is number => id != null)
+    )
+  );
+
+  // Fetch in batches of 250 (Shopify's max ids per request)
+  for (let i = 0; i < productIds.length; i += 250) {
+    const batch = productIds.slice(i, i + 250);
+    const url = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/products.json?ids=${batch.join(',')}&fields=id,variants&limit=250`;
+
+    const response = await fetch(url, {
+      headers: {
+        'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Shopify API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    for (const product of data.products as { variants: { id: number; compare_at_price: string | null }[] }[]) {
+      for (const variant of product.variants) {
+        const compareAt = variant.compare_at_price ? parseFloat(variant.compare_at_price) : 0;
+        if (compareAt > 0) {
+          mrpMap.set(variant.id, compareAt);
+        }
+      }
+    }
+  }
+
+  return mrpMap;
+}
+
+export function processOrders(
+  orders: ShopifyOrder[],
+  stuckDaysThreshold: number,
+  mrpMap: Map<number, number> = new Map()
+): ProcessedOrder[] {
   const now = new Date();
 
   return orders.map((order) => {
@@ -131,6 +188,16 @@ export function processOrders(orders: ShopifyOrder[], stuckDaysThreshold: number
     const isCOD = paymentGateway.includes('cod') || paymentGateway.includes('cash on delivery');
     const paymentType = isCOD ? 'cod' : 'prepaid';
 
+    // Amounts: order value is what the customer paid; MRP is the sum of each
+    // item's struck-through compare-at price (falling back to its sold price
+    // when the variant has no compare-at price set) times quantity.
+    const orderValue = parseFloat(order.total_price) || 0;
+    const mrp = order.line_items.reduce((sum, item) => {
+      const unitMrp = (item.variant_id != null ? mrpMap.get(item.variant_id) : undefined)
+        ?? (parseFloat(item.price) || 0);
+      return sum + unitMrp * item.quantity;
+    }, 0);
+
     return {
       orderId: String(order.id),
       orderNumber: order.name,
@@ -148,6 +215,8 @@ export function processOrders(orders: ShopifyOrder[], stuckDaysThreshold: number
       isSnapmint,
       deliveryStatus,
       paymentType,
+      mrp,
+      orderValue,
       city,
       state,
       createdAt: order.created_at,
